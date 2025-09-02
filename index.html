@@ -1,196 +1,207 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="uk">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Сердечное поздравление</title>
+  <title>Love Celebration</title>
   <style>
-    html, body {
+    body {
       margin: 0;
-      padding: 0;
-      width: 100%;
-      height: 100%;
       overflow: hidden;
-      background: #111;
-      color: #fff;
-      font-family: "Segoe UI", sans-serif;
+      background: #000;
+      color: white;
+      font-family: 'Arial', sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+      height: 100vh;
       text-align: center;
     }
-    canvas {
-      display: block;
+
+    #canvas {
       position: absolute;
       top: 0;
       left: 0;
       width: 100%;
       height: 100%;
+      z-index: 1;
     }
-    .message {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
+
+    #message {
+      position: relative;
+      z-index: 2;
       max-width: 90%;
-      font-size: 1.2rem;
-      line-height: 1.5;
+      font-size: 1.2em;
+      background: rgba(0,0,0,0.5);
+      padding: 20px;
+      border-radius: 20px;
       opacity: 0;
-      transition: opacity 2s;
-      z-index: 10;
+      transition: opacity 2s ease;
     }
-    .message.show {
-      opacity: 1;
-    }
+
     .click-text {
       position: absolute;
-      transform: translate(-50%, -50%) scale(1);
-      font-size: 1.3rem;
+      color: #ff66cc;
+      font-size: 1.5em;
       font-weight: bold;
-      color: #ff3366;
-      opacity: 0;
       pointer-events: none;
-      animation: popFade 1.5s forwards;
-      z-index: 20;
+      animation: fadeUp 2s forwards;
     }
-    @keyframes popFade {
-      0% {opacity: 1; transform: translate(-50%, -50%) scale(0.8);}
-      50% {opacity: 1; transform: translate(-50%, -50%) scale(1.2);}
-      100% {opacity: 0; transform: translate(-50%, -50%) scale(1);}
+
+    @keyframes fadeUp {
+      0% {opacity: 1; transform: translateY(0);} 
+      100% {opacity: 0; transform: translateY(-50px);} 
     }
   </style>
 </head>
 <body>
   <canvas id="canvas"></canvas>
-  <div id="msg" class="message">
-    Щиро вітаємо вас з найважливішим днем у вашому житті! Бажаємо любові, гармонії, взаєморозуміння та безмежного щастя у вашому спільному житті. Нехай ваш шлюб буде міцним, а кохання зростає з кожним днем!✨<br>
-    <b>Cristi & Valentina & Emilia</b>
+  <div id="message">
+    <p>Щиро вітаємо вас з найважливішим днем у вашому житті! 💍<br>
+    Бажаємо любові, гармонії, взаєморозуміння та безмежного щастя у вашому спільному житті.<br>
+    Нехай ваш шлюб буде міцним, а кохання зростає з кожним днем! ✨</p>
+    <h3>Cristi & Valentina & Emilia</h3>
   </div>
 
   <script>
-    const canvas = document.getElementById('canvas');
-    const ctx = canvas.getContext('2d');
-    let W, H;
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
 
-    function resize() {
-      W = canvas.width = window.innerWidth;
-      H = canvas.height = window.innerHeight;
-    }
-    window.addEventListener('resize', resize);
-    resize();
-
-    let particles = [];
-    const fireworks = [];
-    let targetPoints = [];
-
-    function heartShape(t) {
-      const x = 16 * Math.pow(Math.sin(t), 3);
-      const y = 13 * Math.cos(t) - 5 * Math.cos(2*t) - 2 * Math.cos(3*t) - Math.cos(4*t);
-      return [x, -y];
-    }
-
-    function buildHeartPoints(scale) {
-      const points = [];
-      const offsetY = 0.05 * H; // смещаем сердце выше
-      for (let t = 0; t < Math.PI*2; t += 0.05) {
-        const [x, y] = heartShape(t);
-        points.push([W/2 + x*scale, H/2 + y*scale - offsetY]);
+    class Particle {
+      constructor(x, y, color, angle=0, radius=0) {
+        this.startX = Math.random() * canvas.width;
+        this.startY = Math.random() * canvas.height;
+        this.x = this.startX;
+        this.y = this.startY;
+        this.tx = x;
+        this.ty = y;
+        this.size = 2;
+        this.color = color;
+        this.angle = angle;
+        this.radius = radius;
       }
-      return points;
+      update() {
+        this.x += (this.tx - this.x) * 0.02;
+        this.y += (this.ty - this.y) * 0.02;
+      }
+      orbit(cx, cy) {
+        this.angle += 0.002; // скорость вращения
+        this.tx = cx + Math.cos(this.angle) * this.radius;
+        this.ty = cy + Math.sin(this.angle) * this.radius;
+      }
+      draw() {
+        ctx.fillStyle = this.color;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        ctx.fill();
+      }
     }
 
-    function initParticles() {
-      const scale = Math.min(W, H)/30;
-      targetPoints = buildHeartPoints(scale);
+    const particles = [];
+    const orbiters = [];
+    let heartScale = 12;
 
-      // адаптивное количество частиц в зависимости от размера экрана
-      let count = Math.floor(W*H/1200);
-      if (count > 600) count = 600;
-      if (count < 150) count = 150;
+    function createHeart(scale=12) {
+      particles.length = 0;
+      orbiters.length = 0;
+      const offsetX = canvas.width / 2;
+      const offsetY = canvas.height / 2;
+      for (let t = 0; t < Math.PI * 2; t += 0.05) {
+        let x = 16 * Math.pow(Math.sin(t), 3);
+        let y = -(13 * Math.cos(t) - 5 * Math.cos(2*t) - 2 * Math.cos(3*t) - Math.cos(4*t));
+        x *= scale;
+        y *= scale;
+        // сердечки внутри
+        for (let r = 0; r < 6; r++) {
+          let rx = x + (Math.random()-0.5)*30;
+          let ry = y + (Math.random()-0.5)*30;
+          particles.push(new Particle(offsetX + rx, offsetY + ry, "#ff3366"));
+        }
+        // сердечки по кругу (будут крутиться)
+        const angle = Math.random()*Math.PI*2;
+        const radius = Math.sqrt(x*x+y*y);
+        orbiters.push(new Particle(offsetX+x, offsetY+y, "#ff66cc", angle, radius));
+        particles.push(new Particle(offsetX + x, offsetY + y, "#ff3366"));
+      }
+    }
+    createHeart(heartScale);
 
-      particles = [];
-      for (let i = 0; i < count; i++) {
-        const tp = targetPoints[i % targetPoints.length];
-        particles.push({
-          x: Math.random()*W,
-          y: Math.random()*H,
-          tx: tp[0],
-          ty: tp[1],
-          size: Math.max(2, Math.min(5, scale/5 + Math.random()*2)),
-          progress: 0
+    // Фейерверки
+    function fireworks() {
+      const x = Math.random() * canvas.width;
+      const y = Math.random() * canvas.height * 0.7;
+      for (let i = 0; i < 50; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = Math.random() * 3 + 1;
+        const vx = Math.cos(angle) * speed;
+        const vy = Math.sin(angle) * speed;
+        const color = `hsl(${Math.random()*360},100%,60%)`;
+        let life = 60;
+
+        const explode = () => {
+          if (life-- > 0) {
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.arc(x + vx * (60-life), y + vy * (60-life), 2, 0, Math.PI*2);
+            ctx.fill();
+            requestAnimationFrame(explode);
+          }
+        }
+        explode();
+      }
+    }
+    setInterval(fireworks, 2000);
+
+    // Анимация
+    let assembled = false;
+    function animate() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      let complete = true;
+      particles.forEach(p => {
+        p.update();
+        p.draw();
+        if (Math.abs(p.x - p.tx) > 1 || Math.abs(p.y - p.ty) > 1) {
+          complete = false;
+        }
+      });
+
+      if (complete && !assembled) {
+        assembled = true;
+        document.getElementById("message").style.opacity = 1;
+      }
+
+      if (assembled) {
+        orbiters.forEach(o => {
+          o.orbit(canvas.width/2, canvas.height/2);
+          o.update();
+          o.draw();
         });
       }
+
+      requestAnimationFrame(animate);
     }
+    animate();
 
-    function drawHeart(p) {
-      ctx.fillStyle = "#ff3366";
-      ctx.beginPath();
-      ctx.moveTo(p.x, p.y - p.size/2);
-      ctx.bezierCurveTo(p.x + p.size/2, p.y - p.size/2, p.x + p.size/2, p.y + p.size/3, p.x, p.y + p.size);
-      ctx.bezierCurveTo(p.x - p.size/2, p.y + p.size/3, p.x - p.size/2, p.y - p.size/2, p.x, p.y - p.size/2);
-      ctx.closePath();
-      ctx.fill();
-    }
+    // Клик-текст только после сборки сердца
+    document.addEventListener("click", e => {
+      if (!assembled) return;
+      const span = document.createElement("div");
+      span.className = "click-text";
+      span.style.left = e.clientX + "px";
+      span.style.top = e.clientY + "px";
+      span.textContent = "E+V 06.09.25";
+      document.body.appendChild(span);
+      setTimeout(() => span.remove(), 2000);
+    });
 
-    function animateParticles() {
-      let allDone = true;
-      for (let p of particles) {
-        if (p.progress < 1) {
-          p.progress += 0.004;
-          p.x += (p.tx - p.x) * 0.02;
-          p.y += (p.ty - p.y) * 0.02;
-          allDone = false;
-        }
-        drawHeart(p);
-      }
-      return allDone;
-    }
-
-    function spawnFirework() {
-      const x = Math.random()*W;
-      const y = Math.random()*H/2;
-      const count = 30;
-      for (let i = 0; i < count; i++) {
-        const angle = (Math.PI*2) * (i/count);
-        const speed = 2 + Math.random()*3;
-        fireworks.push({ x, y, vx: Math.cos(angle)*speed, vy: Math.sin(angle)*speed, life: 60, color: `hsl(${Math.random()*360},100%,60%)` });
-      }
-    }
-
-    function drawFireworks() {
-      for (let i = fireworks.length-1; i >= 0; i--) {
-        const f = fireworks[i];
-        ctx.fillStyle = f.color;
-        ctx.beginPath();
-        ctx.arc(f.x, f.y, 2, 0, Math.PI*2);
-        ctx.fill();
-        f.x += f.vx; f.y += f.vy; f.vy += 0.05; f.life--;
-        if (f.life <= 0) fireworks.splice(i, 1);
-      }
-    }
-
-    function showClickText(e) {
-      const el = document.createElement('div');
-      el.className = 'click-text';
-      el.style.left = e.clientX + 'px';
-      el.style.top = e.clientY + 'px';
-      el.textContent = 'E+V 06.09.25';
-      document.body.appendChild(el);
-      setTimeout(()=>el.remove(), 1500);
-    }
-    document.body.addEventListener('click', showClickText);
-
-    let heartDone = false;
-    let fireworkTimer = 0;
-
-    function loop() {
-      ctx.clearRect(0,0,W,H);
-      heartDone = animateParticles() || heartDone;
-      if (heartDone) document.getElementById('msg').classList.add('show');
-      if (fireworkTimer <= 0) { spawnFirework(); fireworkTimer = 50; } else fireworkTimer--;
-      drawFireworks();
-      requestAnimationFrame(loop);
-    }
-
-    initParticles();
-    loop();
+    window.addEventListener("resize", () => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      createHeart(heartScale);
+    });
   </script>
 </body>
 </html>
